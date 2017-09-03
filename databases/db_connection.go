@@ -2,9 +2,9 @@ package databases
 
 import (
 	"database/sql"
+	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"mock-api/config"
-	_ "mock-api/go-sql-driver/mysql"
 )
 
 func OpenConn() *sql.DB {
