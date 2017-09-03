@@ -16,8 +16,15 @@ import (
 *@param adhaar id, dob, bio-metric content (fingerprints)
 *@return bool
  */
-func IsRollValid(rollno string) bool {
-	/*
-	*
-	 */
+func Authenticate() httprouter.Handle {
+
+	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
+		response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
+			"message": "Hold on. Something's wrong",
+		})
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(w, response)
+		return
+	}
 }
