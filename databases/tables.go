@@ -22,7 +22,7 @@ func GetTables() []Table {
 			[]string{"id", "aadhaar_id", "name", "dob", "image_link", "created_at", "updated_at"},
 			map[string]string{
 				"id":         "INT(10) UNSIGNED AUTO_INCREMENT PRIMARY KEY",
-				"aadhaar_id": "INT(12) UNIQUE NOT NULL",
+				"aadhaar_id": "VARCHAR(15) UNIQUE NOT NULL",
 				"name":       "VARCHAR(30) NOT NULL",
 				"dob":        "DATE",
 				"image_link": "VARCHAR(65)",
