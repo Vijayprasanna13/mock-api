@@ -27,15 +27,14 @@ func main() {
 	router.GET("/user/register", ReturnUserPage)
 
 	/*
-	*API routes
-	 */
+		API routes
+	*/
 	router.POST("/mock-api/user/auth", Users.Authenticate())
 	router.POST("/mock-api/user/add", Users.AddUser())
 
 	/*
-	*
-	*Serve the app via port <8000>
-	 */
+		Serve the app via port <8000>
+	*/
 	log.Fatal(http.ListenAndServe(":"+port, handlers.LoggingHandler(os.Stdout, router)))
 
 }

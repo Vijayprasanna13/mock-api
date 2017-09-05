@@ -37,12 +37,6 @@ func Authenticate() httprouter.Handle {
 
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
-		// response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
-		// 	"message": "Hold on. Something's wrong",
-		// })
-		// w.WriteHeader(http.StatusInternalServerError)
-		// fmt.Fprintf(w, response)
-		// return
 	}
 }
 
@@ -58,11 +52,11 @@ func storeImageAndGetFileName(r *http.Request) string {
 	defer file.Close()
 
 	// Create a folder called images in the src directory if not already exists
-	if _, err := os.Stat("../images/"); os.IsNotExist(err) {
-		os.Mkdir("../images/", 0775)
+	if _, err := os.Stat("images/"); os.IsNotExist(err) {
+		os.Mkdir("images/", 0775)
 	}
 
-	filePath := "../images/" + strconv.FormatInt(time.Now().UnixNano(), 10) + filepath.Ext(handler.Filename)
+	filePath := "images/" + strconv.FormatInt(time.Now().UnixNano(), 10) + filepath.Ext(handler.Filename)
 
 	// Store the uploaded image with the timestamp as its name in order to not replace multiple images with name filename
 	f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0666)
@@ -107,7 +101,7 @@ func validateAddUserRequest(r *http.Request) (User, error) {
 }
 
 func storeUserDetails(user User) (string, error) {
-
+	fmt.Println(user.aadhaar_id.String)
 	_, err := databases.DB_CONN.Exec(`INSERT INTO users
                                         (
                                             aadhaar_id,
