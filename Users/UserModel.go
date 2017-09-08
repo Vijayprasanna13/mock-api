@@ -53,7 +53,7 @@ func getUserByAadhaarIdAndDob(aadhaar_id string, dob string) (User, error) {
                                             dob=?
                                         `, aadhaar_id, dob).Scan(&name, &image_link)
     if err != nil {
-        return User{}, nil
+        return User{}, err
     }
 
     user.aadhaar_id.String  = aadhaar_id
@@ -64,7 +64,14 @@ func getUserByAadhaarIdAndDob(aadhaar_id string, dob string) (User, error) {
     return user, nil
 }
 
-func getHammingDistance(r *http.Request, user User) (uint64, error) {
+func getHammingDistance(r *http.Request) (uint64, error) {
+
+    user, err := getUserByAadhaarIdAndDob(r.FormValue("aadhaar_id"), r.FormValue("dob"))
+
+    if err != nil {
+        return 0, err
+    }
+
     r.ParseMultipartForm(32 << 20)
     inputImage, _, err := r.FormFile("image")
     if err != nil {
@@ -107,9 +114,7 @@ func Authenticate() httprouter.Handle {
             return
         }
 
-        user, err := getUserByAadhaarIdAndDob(r.FormValue("aadhaar_id"), r.FormValue("dob"))
-
-        hammingDistance, err := getHammingDistance(r, user)
+        hammingDistance, err := getHammingDistance(r)
 
         if err != nil {
     		response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
