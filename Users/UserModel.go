@@ -16,6 +16,7 @@ import (
     "mime/multipart"
     "image/jpeg"
     "github.com/jteeuwen/imghash"
+    "mock-api/Helpers"
 )
 
 type User struct {
@@ -63,6 +64,33 @@ func getUserByAadhaarIdAndDob(aadhaar_id string, dob string) (User, error) {
     return user, nil
 }
 
+func getHammingDistance(r *http.Request, user User) (uint64, error) {
+    r.ParseMultipartForm(32 << 20)
+    inputImage, _, err := r.FormFile("image")
+    if err != nil {
+        return 0, err
+    }
+
+    inputImageHash, err := getAverageHashOfImageFile(inputImage)
+
+    userImageFile, err := os.Open(user.image_link.String)
+    if err != nil {
+        return 0, err
+    }
+
+    userImage, err := jpeg.Decode(userImageFile)
+    if err != nil {
+        return 0, err
+    }
+
+    userImageHash := imghash.Average(userImage)
+
+    hammingDistance := imghash.Distance(inputImageHash, userImageHash)
+    fmt.Println("hammingDistance : " + strconv.FormatUint(hammingDistance, 10))
+
+    return hammingDistance, nil
+}
+
 /*
 *
 *Function autheticates the user using the provided credentials
@@ -81,39 +109,23 @@ func Authenticate() httprouter.Handle {
 
         user, err := getUserByAadhaarIdAndDob(r.FormValue("aadhaar_id"), r.FormValue("dob"))
 
-        r.ParseMultipartForm(32 << 20)
-        inputImage, _, err := r.FormFile("image")
+        hammingDistance, err := getHammingDistance(r, user)
+
         if err != nil {
-            fmt.Println(err)
-            return
+    		response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
+    			"message": err.Error(),
+    		})
+    		w.WriteHeader(http.StatusInternalServerError)
+    		fmt.Fprintf(w, response)
+    		return
         }
 
-        inputImageHash, err := getAverageHashOfImageFile(inputImage)
-
-        userImageFile, err := os.Open(user.image_link.String)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-
-        userImage, err := jpeg.Decode(userImageFile)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-
-        userImageHash := imghash.Average(userImage)
-
-        hammingDistance := imghash.Distance(inputImageHash, userImageHash)
-        fmt.Println("hammingDistance : " + strconv.FormatUint(hammingDistance, 10))
-
+        response := Helpers.ConvertToJSON("200 Successful", map[string]interface{}{
+            "hammingDistance": hammingDistance,
+        })
+        w.WriteHeader(http.StatusInternalServerError)
+        fmt.Fprintf(w, response)
         return
-		// response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
-		// 	"message": "Hold on. Something's wrong",
-		// })
-		// w.WriteHeader(http.StatusInternalServerError)
-		// fmt.Fprintf(w, response)
-		// return
     }
 }
 
@@ -235,20 +247,19 @@ func AddUser() httprouter.Handle {
 
         result, err := storeUserDetails(user)
         if err != nil {
-            fmt.Println(err)
+            response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
+                "message": err.Error(),
+            })
+            w.WriteHeader(http.StatusInternalServerError)
+            fmt.Fprintf(w, response)
             return
         }
 
-		fmt.Println(result)
-		return
-
-		// if user_validation_result != "" {
-		//     response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
-		//         "message": user_validation_result,
-		//     })
-		//     w.WriteHeader(http.StatusInternalServerError)
-		//     fmt.Fprintf(w, response)
-		//     return
-		// }
+	    response := Helpers.ConvertToJSON("200 Successful", map[string]interface{}{
+	        "message": result,
+	    })
+	    w.WriteHeader(http.StatusInternalServerError)
+	    fmt.Fprintf(w, response)
+	    return
 	}
 }
