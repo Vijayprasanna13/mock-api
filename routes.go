@@ -15,6 +15,10 @@ func ReturnUserPage(w http.ResponseWriter, r *http.Request, ps httprouter.Params
 	Helpers.RenderTemplate(w, r, "UserSubmit")
 }
 
+func ReturnUserAuthPage(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+    Helpers.RenderTemplate(w, r, "UserAuth")
+}
+
 func main() {
 
 	port := "8000"
@@ -25,6 +29,7 @@ func main() {
 		View Routes
 	*/
 	router.GET("/user/register", ReturnUserPage)
+    router.GET("/user/auth", ReturnUserAuthPage)
 
 	/*
 		API routes

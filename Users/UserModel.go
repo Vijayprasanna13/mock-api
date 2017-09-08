@@ -28,6 +28,41 @@ type User struct {
     updated_at  sql.NullString
 }
 
+func validateAuthenticateRequest(r *http.Request) error {
+
+    if m, _ := regexp.MatchString("^[0-9]{12}$", r.FormValue("aadhaar_id")); !m {
+        return errors.New("Invalid aadhaar number " + r.FormValue("aadhaar_id"))
+    }
+
+    if m, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", r.FormValue("dob")); !m {
+        return errors.New("Invalid dob")
+    }
+
+    return nil
+}
+
+func getUserByAadhaarIdAndDob(aadhaar_id string, dob string) (User, error) {
+    var user User
+    var name, image_link string
+
+    err := databases.DB_CONN.QueryRow(`SELECT name, image_link
+                                         FROM users
+                                         WHERE
+                                            aadhaar_id=? AND
+                                            dob=?
+                                        `, aadhaar_id, dob).Scan(&name, &image_link)
+    if err != nil {
+        return User{}, nil
+    }
+
+    user.aadhaar_id.String  = aadhaar_id
+    user.name.String        = name
+    user.dob.String         = dob
+    user.image_link.String  = image_link
+
+    return user, nil
+}
+
 /*
 *
 *Function autheticates the user using the provided credentials
@@ -38,6 +73,41 @@ func Authenticate() httprouter.Handle {
 
 	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
+        err := validateAuthenticateRequest(r)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+
+        user, err := getUserByAadhaarIdAndDob(r.FormValue("aadhaar_id"), r.FormValue("dob"))
+
+        r.ParseMultipartForm(32 << 20)
+        inputImage, _, err := r.FormFile("image")
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+
+        inputImageHash, err := getAverageHashOfImageFile(inputImage)
+
+        userImageFile, err := os.Open(user.image_link.String)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+
+        userImage, err := jpeg.Decode(userImageFile)
+        if err != nil {
+            fmt.Println(err)
+            return
+        }
+
+        userImageHash := imghash.Average(userImage)
+
+        hammingDistance := imghash.Distance(inputImageHash, userImageHash)
+        fmt.Println("hammingDistance : " + strconv.FormatUint(hammingDistance, 10))
+
+        return
 		// response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
 		// 	"message": "Hold on. Something's wrong",
 		// })
