@@ -1,11 +1,11 @@
 package Users
 
 import (
-	"database/sql"
-	"fmt"
-	"github.com/julienschmidt/httprouter"
-	"net/http"
-	"regexp"
+    "database/sql"
+    "fmt"
+    "github.com/julienschmidt/httprouter"
+    "net/http"
+    "regexp"
     "os"
     "io"
     "time"
@@ -15,8 +15,11 @@ import (
     "mock-api/databases"
     "mime/multipart"
     "image/jpeg"
+    "image/png"
     "github.com/jteeuwen/imghash"
     "mock-api/Helpers"
+    "path"
+    "image"
 )
 
 type User struct {
@@ -73,19 +76,27 @@ func getHammingDistance(r *http.Request) (uint64, error) {
     }
 
     r.ParseMultipartForm(32 << 20)
-    inputImage, _, err := r.FormFile("image")
+    inputImage, inputImageHandler, err := r.FormFile("image")
     if err != nil {
         return 0, err
     }
 
-    inputImageHash, err := getAverageHashOfImageFile(inputImage)
+    inputImageHash, err := getAverageHashOfImageFile(inputImage, inputImageHandler.Filename)
 
     userImageFile, err := os.Open(user.image_link.String)
     if err != nil {
         return 0, err
     }
 
-    userImage, err := jpeg.Decode(userImageFile)
+    var userImage image.Image
+
+    if path.Ext(user.image_link.String) == ".jpg" || path.Ext(user.image_link.String) == ".jpeg" {
+        userImage, err = jpeg.Decode(userImageFile)
+    } else if path.Ext(user.image_link.String) == ".png" {
+        userImage, err = png.Decode(userImageFile)
+    } else {
+        return 0, errors.New("Unsupported image format. Supported formats : png, jpg, jpeg")
+    }
     if err != nil {
         return 0, err
     }
@@ -93,7 +104,6 @@ func getHammingDistance(r *http.Request) (uint64, error) {
     userImageHash := imghash.Average(userImage)
 
     hammingDistance := imghash.Distance(inputImageHash, userImageHash)
-    fmt.Println("hammingDistance : " + strconv.FormatUint(hammingDistance, 10))
 
     return hammingDistance, nil
 }
@@ -106,23 +116,27 @@ func getHammingDistance(r *http.Request) (uint64, error) {
  */
 func Authenticate() httprouter.Handle {
 
-	return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+    return func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
         err := validateAuthenticateRequest(r)
         if err != nil {
-            fmt.Println(err)
+            response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
+                "message": err.Error(),
+            })
+            w.WriteHeader(http.StatusInternalServerError)
+            fmt.Fprintf(w, response)
             return
         }
 
         hammingDistance, err := getHammingDistance(r)
 
         if err != nil {
-    		response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
-    			"message": err.Error(),
-    		})
-    		w.WriteHeader(http.StatusInternalServerError)
-    		fmt.Fprintf(w, response)
-    		return
+            response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
+                "message": err.Error(),
+            })
+            w.WriteHeader(http.StatusInternalServerError)
+            fmt.Fprintf(w, response)
+            return
         }
 
         response := Helpers.ConvertToJSON("200 Successful", map[string]interface{}{
@@ -134,13 +148,23 @@ func Authenticate() httprouter.Handle {
     }
 }
 
-func getAverageHashOfImageFile(file multipart.File) (uint64, error) {
+func getAverageHashOfImageFile(file multipart.File, filePath string) (uint64, error) {
     file.Seek(0, 0)
-    image, err := jpeg.Decode(file)
+
+    var img image.Image
+    var err error
+    if path.Ext(filePath) == ".jpg" || path.Ext(filePath) == ".jpeg" {
+        img, err = jpeg.Decode(file)
+    } else if path.Ext(filePath) == ".png" {
+        img, err = png.Decode(file)
+    } else {
+        return 0, errors.New("Unsupported image format. Supported formats : png, jpg, jpeg")
+    }
+
     if err != nil {
         return 0, err
     }
-    avg := imghash.Average(image)
+    avg := imghash.Average(img)
 
     return avg, nil
 }
@@ -169,13 +193,9 @@ func storeImageAndGetFileName(r *http.Request) (string, error) {
     defer f.Close()
     io.Copy(f, file)
 
-     
-    // Find the average hash of the image file
-    imageAverageHash, err := getAverageHashOfImageFile(file)
     if err != nil {
         return "", err
     }
-    fmt.Println(imageAverageHash)
 
     defer file.Close()
 
@@ -206,23 +226,23 @@ func validateAddUserRequest(r *http.Request) (User, error) {
         return User{}, err
     }
 
-	if m, _ := regexp.MatchString("^[0-9]{12}$", user.aadhaar_id.String); !m {
-		return User{}, errors.New("Invalid aadhaar number " + user.aadhaar_id.String)
-	}
+    if m, _ := regexp.MatchString("^[0-9]{12}$", user.aadhaar_id.String); !m {
+        return User{}, errors.New("Invalid aadhaar number " + user.aadhaar_id.String)
+    }
 
-	if m, _ := regexp.MatchString("^[a-zA-Z .]+$", user.name.String); !m {
-		return User{}, errors.New("Invalid name")
-	}
+    if m, _ := regexp.MatchString("^[a-zA-Z .]+$", user.name.String); !m {
+        return User{}, errors.New("Invalid name")
+    }
 
-	if m, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", user.dob.String); !m {
-		return User{}, errors.New("Invalid dob")
-	}
+    if m, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", user.dob.String); !m {
+        return User{}, errors.New("Invalid dob")
+    }
 
-	return user, nil
+    return user, nil
 }
 
 func storeUserDetails(user User) (string, error) {
-	_, err := databases.DB_CONN.Exec(`INSERT INTO users
+    _, err := databases.DB_CONN.Exec(`INSERT INTO users
                                         (
                                             aadhaar_id,
                                             name,
@@ -233,20 +253,24 @@ func storeUserDetails(user User) (string, error) {
                                         )
                                         VALUES (?, ?, ?, ?, ?, ?)
                                      `, user.aadhaar_id.String, user.name.String, user.dob.String, user.image_link.String, time.Now().Format("2006/01/02 15:04:05"), time.Now().Format("2006/01/02 15:04:05"))
-	if err != nil {
-		return "", err
-	}
+    if err != nil {
+    	return "", err
+    }
 
-	return "user created", nil
+    return "user created", nil
 }
 
 func AddUser() httprouter.Handle {
 
-	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
+    return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 
         user, err := validateAddUserRequest(r)
         if err != nil {
-            fmt.Println(err)
+            response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
+                "message": err.Error(),
+            })
+            w.WriteHeader(http.StatusInternalServerError)
+            fmt.Fprintf(w, response)
             return
         }
 
@@ -260,11 +284,11 @@ func AddUser() httprouter.Handle {
             return
         }
 
-	    response := Helpers.ConvertToJSON("200 Successful", map[string]interface{}{
-	        "message": result,
-	    })
-	    w.WriteHeader(http.StatusInternalServerError)
-	    fmt.Fprintf(w, response)
-	    return
-	}
+        response := Helpers.ConvertToJSON("200 Successful", map[string]interface{}{
+            "message": result,
+        })
+        w.WriteHeader(http.StatusInternalServerError)
+        fmt.Fprintf(w, response)
+        return
+    }
 }
