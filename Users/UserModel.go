@@ -122,6 +122,7 @@ func Authenticate() httprouter.Handle {
         if err != nil {
             response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
                 "message": err.Error(),
+                "auth_status": false,
             })
             w.WriteHeader(http.StatusInternalServerError)
             fmt.Fprintf(w, response)
@@ -133,15 +134,29 @@ func Authenticate() httprouter.Handle {
         if err != nil {
             response := Helpers.ConvertToJSON("500 Internal Server Error", map[string]interface{}{
                 "message": err.Error(),
+                "auth_status": false,
             })
             w.WriteHeader(http.StatusInternalServerError)
             fmt.Fprintf(w, response)
             return
         }
 
+        if hammingDistance > 5 {
+            response := Helpers.ConvertToJSON("200 Successful", map[string]interface{}{
+                "message": "unsuccessful",
+                "auth_status": false,
+            })
+
+            w.WriteHeader(http.StatusInternalServerError)
+            fmt.Fprintf(w, response)
+            return
+        }
+        
         response := Helpers.ConvertToJSON("200 Successful", map[string]interface{}{
-            "hammingDistance": hammingDistance,
+            "message": "successful",
+            "auth_status": true,
         })
+
         w.WriteHeader(http.StatusInternalServerError)
         fmt.Fprintf(w, response)
         return
