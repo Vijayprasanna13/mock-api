@@ -26,3 +26,5 @@ to better suit the needs of the client application, the voting system.
 can use the users adhaar id to verify his/her authenticity.
 2. `/mock-api/user/auth` - autheticate the user using fingerprint image as biometric.
 
+## Screenshots
+![Adhaar Registration with Fingerprints](/screenshot.png)
